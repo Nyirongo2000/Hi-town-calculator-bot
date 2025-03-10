@@ -81,155 +81,69 @@ fun Application.configureRouting() {
             call.respond(bot.details)
         }
 
+        get("/health") {
+            call.respond(mapOf(
+                "status" to "healthy",
+                "version" to "1.0.0",
+                "timestamp" to System.currentTimeMillis()
+            ))
+        }
+
+        get("/metrics") {
+            call.respond(mapOf(
+                "uptime" to System.currentTimeMillis(),
+                "groups" to bot.groupCount,
+                "messages_processed" to bot.messagesProcessed,
+                "errors" to bot.errorCount
+            ))
+        }
+
         post("/install") {
-            try {
-                println("=== Install Request Received ===")
-                val body = call.receive<InstallBotBody>()
-                println("Install request body: $body")
-                println("Group ID: ${body.groupId}")
-                println("Group Name: ${body.groupName}")
-                println("Webhook: ${body.webhook}")
-                println("Config: ${body.config}")
-                println("Secret: ${body.secret}")
-                
-                if (!bot.validateInstall(body.secret)) {
-                    println("Invalid install secret")
-                    call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "Invalid install secret"))
-                    return@post
-                }
-                
-                val token = UUID.randomUUID().toString()
-                println("Generated token: $token")
-                
-                bot.install(token, body)
-                println("Bot installed successfully")
-                
-                call.respond(InstallBotResponse(token = token))
-            } catch (e: Exception) {
-                println("Install error: ${e.message}")
-                e.printStackTrace()
-                call.application.log.error("Install error", e)
-                call.respond(HttpStatusCode.BadRequest, mapOf(
-                    "error" to e.message,
-                    "type" to e.javaClass.simpleName
-                ))
+            val body = call.receive<InstallBotBody>()
+            if (!bot.validateInstall(body.secret)) {
+                call.respond(HttpStatusCode.Unauthorized)
+                return@post
             }
+            val token = UUID.randomUUID().toString()
+            bot.install(token, body)
+            call.respond(InstallBotResponse(token = token))
         }
 
         post("/reinstall") {
-            try {
-                println("=== Reinstall Request Received ===")
-                val token = call.request.header("Authorization")?.removePrefix("Bearer ")
-                    ?: run {
-                        println("Missing authorization token")
-                        return@post call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "Missing authorization token"))
-                    }
-                println("Token: $token")
-
-                val body = call.receive<ReinstallBotBody>()
-                println("Reinstall request body: $body")
-                println("Config: ${body.config}")
-                
-                val config = body.config ?: emptyList()
-                println("Using config: $config")
-                
-                bot.reinstall(token, config)
-                println("Bot reinstalled successfully")
-                call.respond(HttpStatusCode.OK)
-            } catch (e: Exception) {
-                println("Reinstall error: ${e.message}")
-                e.printStackTrace()
-                call.application.log.error("Reinstall error", e)
-                call.respond(HttpStatusCode.BadRequest, mapOf(
-                    "error" to e.message,
-                    "type" to e.javaClass.simpleName
-                ))
-            }
+            val token = call.request.header(HttpHeaders.Authorization)?.removePrefix("Bearer ")
+                ?: return@post call.respond(HttpStatusCode.Unauthorized)
+            val body = call.receive<ReinstallBotBody>()
+            bot.reinstall(token, body.config)
+            call.respond(HttpStatusCode.NoContent)
         }
 
         post("/uninstall") {
-            try {
-                println("=== Uninstall Request Received ===")
-                val token = call.request.header("Authorization")?.removePrefix("Bearer ")
-                    ?: run {
-                        println("Missing authorization token")
-                        return@post call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "Missing authorization token"))
-                    }
-                println("Token: $token")
-
-                bot.uninstall(token)
-                println("Bot uninstalled successfully")
-                call.respond(HttpStatusCode.OK)
-            } catch (e: Exception) {
-                println("Uninstall error: ${e.message}")
-                e.printStackTrace()
-                call.application.log.error("Uninstall error", e)
-                call.respond(HttpStatusCode.BadRequest, mapOf(
-                    "error" to e.message,
-                    "type" to e.javaClass.simpleName
-                ))
-            }
+            val token = call.request.header(HttpHeaders.Authorization)?.removePrefix("Bearer ")
+                ?: return@post call.respond(HttpStatusCode.Unauthorized)
+            bot.uninstall(token)
+            call.respond(HttpStatusCode.NoContent)
         }
 
         post("/message") {
-            try {
-                println("=== Message Request Received ===")
-                val token = call.request.header("Authorization")?.removePrefix("Bearer ")
-                    ?: run {
-                        println("Missing authorization token")
-                        return@post call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "Missing authorization token"))
-                    }
-                println("Token: $token")
-
-                val body = call.receive<MessageBotBody>()
-                println("Message request body: $body")
-                println("Message: ${body.message}")
-                println("Person: ${body.person}")
-                
-                val response = bot.message(token, body)
-                println("Message response: $response")
-                call.respond(response)
-            } catch (e: Exception) {
-                println("Message error: ${e.message}")
-                e.printStackTrace()
-                call.application.log.error("Message error", e)
-                call.respond(HttpStatusCode.BadRequest, mapOf(
-                    "error" to e.message,
-                    "type" to e.javaClass.simpleName
-                ))
-            }
+            val token = call.request.header(HttpHeaders.Authorization)?.removePrefix("Bearer ")
+                ?: return@post call.respond(HttpStatusCode.Unauthorized)
+            val body = call.receive<MessageBotBody>()
+            val response = bot.message(token, body)
+            call.respond(response)
         }
 
         post("/pause") {
-            try {
-                val token = call.request.header("Authorization")?.removePrefix("Bearer ")
-                    ?: return@post call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "Missing authorization token"))
-
-                bot.pause(token)
-                call.respond(HttpStatusCode.OK)
-            } catch (e: Exception) {
-                call.application.log.error("Pause error", e)
-                call.respond(HttpStatusCode.BadRequest, mapOf(
-                    "error" to e.message,
-                    "type" to e.javaClass.simpleName
-                ))
-            }
+            val token = call.request.header(HttpHeaders.Authorization)?.removePrefix("Bearer ")
+                ?: return@post call.respond(HttpStatusCode.Unauthorized)
+            bot.pause(token)
+            call.respond(HttpStatusCode.NoContent)
         }
 
         post("/resume") {
-            try {
-                val token = call.request.header("Authorization")?.removePrefix("Bearer ")
-                    ?: return@post call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "Missing authorization token"))
-
-                bot.resume(token)
-                call.respond(HttpStatusCode.OK)
-            } catch (e: Exception) {
-                call.application.log.error("Resume error", e)
-                call.respond(HttpStatusCode.BadRequest, mapOf(
-                    "error" to e.message,
-                    "type" to e.javaClass.simpleName
-                ))
-            }
+            val token = call.request.header(HttpHeaders.Authorization)?.removePrefix("Bearer ")
+                ?: return@post call.respond(HttpStatusCode.Unauthorized)
+            bot.resume(token)
+            call.respond(HttpStatusCode.NoContent)
         }
     }
 }

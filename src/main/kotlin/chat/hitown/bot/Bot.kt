@@ -42,21 +42,12 @@ val bot = Bot()
 class Bot {
     private val client = HttpClient(CIO) {
         install(ContentNegotiation) {
-            json(Json {
-                prettyPrint = true
-                isLenient = true
-                ignoreUnknownKeys = true
-                coerceInputValues = true
-                encodeDefaults = true
-            })
-        }
-        install(Logging) {
-            level = LogLevel.INFO
+            json()
         }
     }
 
     private val groupInstalls = mutableMapOf<String, GroupInstall>()
-    private val saveFile = File("./bot_state.json")
+    private val saveFile = File("bot_state.json")
     private val calculator = Calculator()
 
     private var _messagesProcessed = 0
@@ -74,47 +65,6 @@ class Bot {
 
     val uptime: Long
         get() = System.currentTimeMillis() - startTime
-
-    init {
-        println("=== Bot Initialization ===")
-        loadState()
-        println("Current group installs: ${groupInstalls.size}")
-        groupInstalls.forEach { (token, install) ->
-            println("Group: ${install.groupName} (${install.groupId})")
-            println("  Token: $token")
-            println("  Webhook: ${install.webhook}")
-            println("  Config: ${install.config}")
-            println("  Paused: ${install.isPaused}")
-        }
-    }
-
-    private fun loadState() {
-        try {
-            println("Loading state from file: ${saveFile.absolutePath}")
-            if (saveFile.exists()) {
-                val state = Json.decodeFromString<Map<String, GroupInstall>>(saveFile.readText())
-                groupInstalls.clear()
-                groupInstalls.putAll(state)
-                println("Loaded ${groupInstalls.size} group installs")
-            } else {
-                println("No state file found, starting fresh")
-            }
-        } catch (e: Exception) {
-            println("Error loading state: ${e.message}")
-            e.printStackTrace()
-        }
-    }
-
-    private fun saveState() {
-        try {
-            println("Saving state to file: ${saveFile.absolutePath}")
-            saveFile.writeText(Json.encodeToString(groupInstalls))
-            println("Saved ${groupInstalls.size} group installs")
-        } catch (e: Exception) {
-            println("Error saving state: ${e.message}")
-            e.printStackTrace()
-        }
-    }
 
     /**
      * Bot details as shown in Hi Town.
@@ -138,96 +88,66 @@ class Bot {
         config = emptyList()
     )
 
+    init {
+        loadState()
+    }
+
+    private fun loadState() {
+        try {
+            if (saveFile.exists()) {
+                val state = Json.decodeFromString<Map<String, GroupInstall>>(saveFile.readText())
+                groupInstalls.putAll(state)
+            }
+        } catch (e: Exception) {
+            println("Error loading state: ${e.message}")
+        }
+    }
+
+    private fun saveState() {
+        try {
+            saveFile.writeText(Json.encodeToString(groupInstalls))
+        } catch (e: Exception) {
+            println("Error saving state: ${e.message}")
+        }
+    }
+
     fun validateInstall(secret: String?): Boolean {
-        println("=== Validating Install Secret ===")
-        println("Received secret: $secret")
-        println("Expected secret: $INSTALL_SECRET")
         return secret == INSTALL_SECRET
     }
 
     fun install(token: String, body: InstallBotBody) {
-        println("=== Installing Bot ===")
-        println("Token: $token")
-        println("Group ID: ${body.groupId}")
-        println("Group Name: ${body.groupName}")
-        println("Webhook: ${body.webhook}")
-        println("Config: ${body.config}")
-        
-        try {
-            val config = body.config?.toList() ?: emptyList()
-            println("Using config: $config")
-            
-            groupInstalls[token] = GroupInstall(
-                groupId = body.groupId,
-                groupName = body.groupName,
-                webhook = body.webhook,
-                config = config,
-                isPaused = false
-            )
-            saveState()
-            println("Bot installed successfully in group: ${body.groupName}")
-            println("Current group installs: ${groupInstalls.size}")
-        } catch (e: Exception) {
-            println("Error installing bot: ${e.message}")
-            e.printStackTrace()
-            throw e
-        }
+        groupInstalls[token] = GroupInstall(
+            groupId = body.groupId,
+            groupName = body.groupName,
+            webhook = body.webhook,
+            config = body.config ?: emptyList()
+        )
+        saveState()
     }
 
     fun reinstall(token: String, config: List<BotConfigValue>?) {
-        println("=== Reinstalling Bot ===")
-        println("Token: $token")
-        println("New config: $config")
-        
         groupInstalls[token]?.let { install ->
-            println("Found existing install for group: ${install.groupName}")
             groupInstalls[token] = install.copy(config = config ?: emptyList())
             saveState()
-            println("Bot reinstalled successfully")
-        } ?: run {
-            println("No existing install found for token: $token")
         }
     }
 
     fun uninstall(token: String) {
-        println("=== Uninstalling Bot ===")
-        println("Token: $token")
-        
-        groupInstalls[token]?.let { install ->
-            println("Found install for group: ${install.groupName}")
-            groupInstalls.remove(token)
-            saveState()
-            println("Bot uninstalled successfully")
-        } ?: run {
-            println("No install found for token: $token")
-        }
+        groupInstalls.remove(token)
+        saveState()
     }
 
     fun pause(token: String) {
-        println("=== Pausing Bot ===")
-        println("Token: $token")
-        
         groupInstalls[token]?.let { install ->
-            println("Found install for group: ${install.groupName}")
             groupInstalls[token] = install.copy(isPaused = true)
             saveState()
-            println("Bot paused successfully")
-        } ?: run {
-            println("No install found for token: $token")
         }
     }
 
     fun resume(token: String) {
-        println("=== Resuming Bot ===")
-        println("Token: $token")
-        
         groupInstalls[token]?.let { install ->
-            println("Found install for group: ${install.groupName}")
             groupInstalls[token] = install.copy(isPaused = false)
             saveState()
-            println("Bot resumed successfully")
-        } ?: run {
-            println("No install found for token: $token")
         }
     }
 
@@ -235,29 +155,12 @@ class Bot {
      * Handle messages sent to the Hi Town group.
      */
     fun message(token: String, body: MessageBotBody): MessageBotResponse {
-        println("=== Processing Message ===")
-        println("Token: $token")
-        println("Message: ${body.message}")
-        println("Person: ${body.person}")
-
-        val install = groupInstalls[token] ?: run {
-            println("No install found for token: $token")
-            return MessageBotResponse(success = false, note = "Bot not installed")
-        }
-
-        if (install.isPaused) {
-            println("Bot is paused")
-            return MessageBotResponse(success = true)
-        }
+        val install = groupInstalls[token] ?: return MessageBotResponse(success = false, note = "Bot not installed")
+        if (install.isPaused) return MessageBotResponse(success = true)
 
         val message = body.message ?: return MessageBotResponse(success = false, note = "No message provided")
+        if (!message.trim().startsWith("@calc")) return MessageBotResponse(success = true)
 
-        // Check if the message starts with @calc
-        if (!message.trim().startsWith("@calc")) {
-            return MessageBotResponse(success = true)
-        }
-
-        // Extract the expression after @calc
         val expression = message.trim().substringAfter("@calc").trim()
         if (expression.isEmpty()) {
             return MessageBotResponse(
@@ -269,7 +172,6 @@ class Bot {
 
         return try {
             val result = calculator.evaluate(expression)
-            // Format the result to a reasonable number of decimal places
             val formattedResult = when {
                 result.isInfinite() -> "Infinity"
                 result.isNaN() -> "Not a number"
@@ -280,19 +182,11 @@ class Bot {
                 success = true,
                 actions = listOf(BotAction(message = formattedResult))
             )
-        } catch (e: IllegalArgumentException) {
+        } catch (e: Exception) {
             MessageBotResponse(
                 success = false,
                 note = e.message ?: "Invalid expression",
                 actions = listOf(BotAction(message = "Error: ${e.message}"))
-            )
-        } catch (e: Exception) {
-            println("Error processing message: ${e.message}")
-            e.printStackTrace()
-            MessageBotResponse(
-                success = false,
-                note = "An error occurred while processing your request",
-                actions = listOf(BotAction(message = "An error occurred. Please check your expression and try again."))
             )
         }
     }
