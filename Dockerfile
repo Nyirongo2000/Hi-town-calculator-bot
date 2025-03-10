@@ -19,9 +19,14 @@ USER appuser
 # Environment variables
 ENV PORT=8080
 ENV BOT_STATE_FILE=/app/bot_state.json
+ENV JAVA_OPTS="-Dlogback.configurationFile=/app/logback.xml -Dlogging.level.root=INFO -Dlogging.level.chat.hitown.bot=DEBUG -Dbot.secret=${BOT_SECRET}"
+
+# Create log directory with proper permissions
+RUN mkdir -p /app/logs && \
+    chown -R appuser:appuser /app/logs
 
 # Expose the port the app runs on
 EXPOSE 8080
 
-# Run the application
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# Run the application with debug logging
+ENTRYPOINT ["sh", "-c", "echo 'Starting bot with BOT_SECRET=${BOT_SECRET}' && java $JAVA_OPTS -jar app.jar"]
