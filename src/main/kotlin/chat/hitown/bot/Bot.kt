@@ -23,8 +23,6 @@ import io.ktor.client.plugins.logging.Logging
 import java.io.File
 import java.util.*
 
-private const val INSTALL_SECRET = "hitownbot"
-
 @Serializable
 data class GroupInstall(
     val groupId: String,
@@ -112,7 +110,12 @@ class Bot {
     }
 
     fun validateInstall(secret: String?): Boolean {
-        return secret == INSTALL_SECRET
+        val expectedSecret = System.getenv("BOT_SECRET")
+        if (expectedSecret == null) {
+            println("Warning: BOT_SECRET environment variable is not set")
+            return false
+        }
+        return secret == expectedSecret
     }
 
     fun install(token: String, body: InstallBotBody) {

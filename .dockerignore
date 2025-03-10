@@ -1,0 +1,40 @@
+# Git
+.git
+.gitignore
+
+# Gradle
+.gradle
+build
+gradle-app.setting
+!gradle-wrapper.jar
+.gradletasknamecache
+
+# IDE
+.idea
+*.iml
+.vscode
+.settings
+.classpath
+.project
+
+# Logs
+*.log
+logs
+
+# Local environment
+.env
+.env.local
+bot_state.json
+
+# Docker
+Dockerfile
+.dockerignore
+
+# Documentation
+README.md
+CHANGELOG.md
+docs
+
+# Test files
+src/test
+*.test 

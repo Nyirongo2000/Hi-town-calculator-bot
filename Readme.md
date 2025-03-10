@@ -32,6 +32,30 @@ A calculator bot for Hi Town that can handle a wide range of mathematical comput
 java -jar build/libs/hi-town-calculator-bot-0.0.1.jar
 ```
 
+## Deployment on Render
+
+1. Create a new Web Service on Render
+2. Connect your GitHub repository
+3. Configure the following settings:
+
+   - Name: `hi-town-calculator-bot` (or your preferred name)
+   - Environment: `Docker`
+   - Branch: `main` (or your deployment branch)
+   - Root Directory: `/` (default)
+   - Instance Type: `Free` (or your preferred plan)
+
+4. Add the following environment variables:
+
+   ```
+   PORT=8080
+   BOT_SECRET=your-secret-here
+   BOT_STATE_FILE=/app/bot_state.json
+   ```
+
+5. Click "Create Web Service"
+
+The service will automatically build and deploy your bot. Render will provide you with a URL where your bot is accessible.
+
 ## API Documentation
 
 ### GET /
@@ -104,5 +128,3 @@ The bot provides clear error messages for:
 3. Commit your changes
 4. Push to the branch
 5. Create a Pull Request
-# Hi-town-calculator-bot
-# Hi-town-calculator-bot
