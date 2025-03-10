@@ -38,7 +38,6 @@ fun Application.configureRouting() {
             prettyPrint = true
             isLenient = true
             ignoreUnknownKeys = true
-            coerceInputValues = true
             encodeDefaults = true
         })
     }
@@ -47,6 +46,7 @@ fun Application.configureRouting() {
         allowMethod(HttpMethod.Options)
         allowMethod(HttpMethod.Get)
         allowMethod(HttpMethod.Post)
+        allowMethod(HttpMethod.Head)
         allowHeader(HttpHeaders.Authorization)
         allowHeader(HttpHeaders.ContentType)
         allowHeader(HttpHeaders.Accept)
@@ -81,12 +81,20 @@ fun Application.configureRouting() {
             call.respond(bot.details)
         }
 
+        head("/") {
+            call.respond(HttpStatusCode.OK)
+        }
+
         get("/health") {
             call.respond(mapOf(
                 "status" to "healthy",
                 "version" to "1.0.0",
                 "timestamp" to System.currentTimeMillis()
             ))
+        }
+
+        head("/health") {
+            call.respond(HttpStatusCode.OK)
         }
 
         get("/metrics") {
@@ -98,15 +106,24 @@ fun Application.configureRouting() {
             ))
         }
 
+        head("/metrics") {
+            call.respond(HttpStatusCode.OK)
+        }
+
         post("/install") {
-            val body = call.receive<InstallBotBody>()
-            if (!bot.validateInstall(body.secret)) {
-                call.respond(HttpStatusCode.Unauthorized)
-                return@post
+            try {
+                val body = call.receive<InstallBotBody>()
+                if (!bot.validateInstall(body.secret)) {
+                    call.respond(HttpStatusCode.Unauthorized)
+                    return@post
+                }
+                val token = UUID.randomUUID().toString()
+                bot.install(token, body)
+                call.respond(InstallBotResponse(token = token))
+            } catch (e: Exception) {
+                println("Install error: ${e.message}")
+                call.respond(HttpStatusCode.BadRequest, mapOf("error" to (e.message ?: "Invalid request")))
             }
-            val token = UUID.randomUUID().toString()
-            bot.install(token, body)
-            call.respond(InstallBotResponse(token = token))
         }
 
         post("/reinstall") {

@@ -110,12 +110,18 @@ class Bot {
     }
 
     fun validateInstall(secret: String?): Boolean {
-        val expectedSecret = System.getenv("BOT_SECRET")
-        if (expectedSecret == null) {
-            println("Warning: BOT_SECRET environment variable is not set")
+        // Hardcoded secret for development/testing
+        val expectedSecret = "hitownbot"
+        println("Debug: Received secret: ${secret?.let { "***" } ?: "null"}")
+        
+        if (secret == null) {
+            println("Warning: No secret provided in installation request")
             return false
         }
-        return secret == expectedSecret
+        
+        val isValid = secret == expectedSecret
+        println("Debug: Secret validation result: $isValid")
+        return isValid
     }
 
     fun install(token: String, body: InstallBotBody) {
